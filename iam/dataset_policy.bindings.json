@@ -1,0 +1,22 @@
+{
+  "bindings": [
+    {
+      "role": "roles/bigquery.dataEditor",
+      "members": [
+        "serviceAccount:etl-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "roles/bigquery.jobUser",
+      "members": [
+        "serviceAccount:etl-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "roles/bigquery.dataViewer",
+      "members": [
+        "group:analysts@yourcompany.com"
+      ]
+    }
+  ]
+}

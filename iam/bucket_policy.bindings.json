@@ -1,0 +1,10 @@
+{
+  "bindings": [
+    {
+      "role": "roles/storage.objectViewer",
+      "members": [
+        "serviceAccount:etl-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+      ]
+    }
+  ]
+}

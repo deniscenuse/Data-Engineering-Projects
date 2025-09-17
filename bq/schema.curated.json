@@ -1,0 +1,188 @@
+[
+  {
+    "name": "hh_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique household id (string to be safe across sources)"
+  },
+  {
+    "name": "year",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "Billing year (2010 or 2011)"
+  },
+  {
+    "name": "month",
+    "type": "INT64",
+    "mode": "REQUIRED",
+    "description": "Billing month (4-8)"
+  },
+  {
+    "name": "zipcode",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Anonymized zipcode"
+  },
+  {
+    "name": "mozip",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Location variable (zip+month+year) proxy for humidity/temperature"
+  },
+  {
+    "name": "lusage",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) of monthly electricity consumption"
+  },
+  {
+    "name": "lusage1",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for April 2009"
+  },
+  {
+    "name": "lusage2",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for May 2009"
+  },
+  {
+    "name": "lusage3",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for June 2009"
+  },
+  {
+    "name": "lusage4",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for July 2009"
+  },
+  {
+    "name": "lusage5",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for August 2009"
+  },
+  {
+    "name": "lusage6",
+    "type": "FLOAT64",
+    "mode": "NULLABLE",
+    "description": "log(kWh) for September 2009"
+  },
+  {
+    "name": "children",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Household has children (true/false)"
+  },
+  {
+    "name": "hhsize2",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Household size category = 2 persons"
+  },
+  {
+    "name": "hhsize3",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Household size category = 3 persons"
+  },
+  {
+    "name": "hhsize4",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Household size category = 4 persons"
+  },
+  {
+    "name": "hhsize5plus",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Household size category = 5+ persons"
+  },
+  {
+    "name": "income2",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $20-30k"
+  },
+  {
+    "name": "income3",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $30-40k"
+  },
+  {
+    "name": "income4",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $40-50k"
+  },
+  {
+    "name": "income5",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $50-75k"
+  },
+  {
+    "name": "income6",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $75-100k"
+  },
+  {
+    "name": "income7",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income $100-125k"
+  },
+  {
+    "name": "income8",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income >$125k (first tier)"
+  },
+  {
+    "name": "income9",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Income >$125k (second tier if present)"
+  },
+  {
+    "name": "owner",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Resident owns home"
+  },
+  {
+    "name": "size_sqft",
+    "type": "INT64",
+    "mode": "NULLABLE",
+    "description": "Size of residence in square feet"
+  },
+  {
+    "name": "period_date",
+    "type": "DATE",
+    "mode": "REQUIRED",
+    "description": "Synthetic period date constructed as DATE(year, month, 1)"
+  },
+  {
+    "name": "ingestion_ts",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Ingestion timestamp"
+  },
+  {
+    "name": "was_imputed",
+    "type": "BOOL",
+    "mode": "NULLABLE",
+    "description": "Any target fields were imputed in this record"
+  },
+  {
+    "name": "impute_strategy",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Baseline or model name used for imputation (if any)"
+  }
+]
