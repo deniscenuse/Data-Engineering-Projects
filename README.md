@@ -1,121 +1,134 @@
-# Energy Analytics Mini‑Project (GCP • BQ • GCS)
+# Energy Analytics Mini Project
 
-This package gives you a tidy, reproducible pipeline:
+This mini-project was created as part of a learning exercise in **data engineering on Google Cloud Platform (GCP)**.  
+The goal was to work with a household electricity consumption dataset and practice a typical data pipeline:  
+from **raw CSV in Cloud Storage** to **structured tables in BigQuery**, with **data quality checks, imputation, insights, and reproducibility**.  
 
-**Deliverables covered**
-1) Ingestion + schema to BigQuery with DQ checks  
-2) Two imputation strategies (baseline + model) and comparison  
-3) Insights SQL + predictive sanity checks  
-4) Security & IAM samples (least‑privilege, column/row scoping)  
-5) Reproducibility (Terraform stub + scripts)  
+---
 
-## 0) Prereqs
-- GCP project (BQ Sandbox OK), `gcloud` & `bq` CLIs
-- A bucket: `gs://YOUR_BUCKET/imputation/` with `data_test.csv`
-- Python 3.10+, `pip install -r requirements.txt`
+## Project Structure
 
-## 1) Create infra
-Option A — **Terraform (stub)**:
-```bash
-cd terraform
-terraform init
-terraform apply -var="project_id=YOUR_PROJECT" -var="bucket_name=YOUR_BUCKET"
+```
+Data-Engineering-Projects/
+├── bq/                 # BigQuery SQL scripts (insights, transformations)
+├── dq/                 # Data quality checks in SQL
+├── notebooks/          # Jupyter notebooks for EDA, imputation, insights
+├── scripts/            # Python scripts for ingestion and imputation
+├── terraform/          # Stub for reproducibility (bucket + dataset)
+├── iam/                # Example IAM JSON policies (least privilege)
+└── README.md           # This file
 ```
 
-Option B — **CLI**:
-```bash
-gcloud config set project YOUR_PROJECT
-bq --location=EU mk -d energy_analytics
-gsutil mb -l EU gs://YOUR_BUCKET
-```
+---
 
-## 2) Load raw CSV → BigQuery
-```bash
-# Upload the file
-gsutil cp ./data/data_test.csv gs://YOUR_BUCKET/imputation/data_test.csv
+## Workflow
 
-# Use Python helper (creates tables and staging)
-python scripts/ingest_to_bq.py --project YOUR_PROJECT --bucket YOUR_BUCKET --object imputation/data_test.csv
-```
+### 1. Data ingestion
+- Input data: `data_test.csv` (household electricity usage, 2010–2011).  
+- Uploaded to **Google Cloud Storage** bucket (`gs://mybucket8787/`).  
+- Ingestion done with **Python script** (`scripts/ingest_to_bq.py`), using the **BigQuery Python client**.  
+- Schema defined explicitly → loaded into **raw_usage** table.  
+- Tables organized as:
+  - **raw_usage** → as ingested  
+  - **stg_usage** → cleaned/structured  
+  - **curated_usage** → ready for analysis  
 
-Alternatively via CLI:
-```bash
-bq load --autodetect=false --replace   --source_format=CSV --skip_leading_rows=1   YOUR_PROJECT:energy_analytics.raw_usage   gs://YOUR_BUCKET/imputation/data_test.csv   ./bq/schema.raw.json
+### 2. Data quality checks
+- SQL queries stored in `dq/dq_checks.sql`.  
+- Checks include:
+  - Missing values in important columns  
+  - Distribution of household size and income categories  
+  - Consistency of year/month ranges  
 
-# Build staging/curated shells
-cat bq/ddl.sql | sed "s/{project_id}/YOUR_PROJECT/g" | bq query --use_legacy_sql=false
-```
+### 3. Imputation strategies
+Two approaches were tried to fill missing values in `lusage` (log of electricity consumption):
+1. **Baseline** → median imputation (by mozip, zipcode, or global level).  
+   - Implemented in **SQL** (`baseline_impute.sql`).  
+2. **Model-based** → linear regression model trained with **BQML**.  
+   - Features: zipcode, mozip, size of house, past consumption (`lusage1-6`), demographics.  
+   - Implemented via **Python script** + **BigQuery ML**.
 
-## 3) Data Quality (run a few assertions)
-```bash
-cat dq/dq_checks.sql | sed "s/{project_id}/YOUR_PROJECT/g" | bq query --use_legacy_sql=false
-```
+### 4. Insights and sanity check
+- Used queries from `bq/insights.sql`.  
+- Compared **pre- and post-imputation statistics** (mean, median).  
+- Correlation between current usage and lagged variables (`lusage1-3`) checked as a sanity step.  
+- Built a simple **predictive model** in BigQuery ML (`linear_reg`) and evaluated metrics.  
 
-## 4) Imputation
-- **Baseline** (group median):  
-```bash
-python scripts/impute_baseline.py --project YOUR_PROJECT
-```
-- **Model‑based** (Ridge regression):  
-```bash
-python scripts/impute_model.py --project YOUR_PROJECT
-```
+### 5. Security & IAM
+- Simulated **least-privilege policies** in JSON (`iam/`).  
+- Examples:
+  - Storage Object Viewer → only read access to bucket.  
+  - BigQuery Data Viewer → only read access to curated dataset.  
+  - Column/row scoping for sensitive demographics.  
 
-Outputs:
-- `energy_analytics.imputed_baseline`
-- `energy_analytics.imputed_model`
-- Appended rows in `energy_analytics.curated_usage`
-- Optional metrics in `energy_analytics.model_metrics`
+### 6. Reproducibility
+- Small **Terraform stub** in `terraform/` creates:  
+  - GCS bucket  
+  - BigQuery dataset  
+- Scripts are runnable via **Cloud Shell**.  
+- README explains arguments (`--project`, `--bucket`, `--object`).  
 
-## 5) Insights & sanity
-- SQL snippets in `bq/insights.sql` (median/avg before vs after, seasonality, correlations).
-```bash
-cat bq/insights.sql | sed "s/{project_id}/YOUR_PROJECT/g" | bq query --use_legacy_sql=false
-```
-- Notebooks in `notebooks/` for EDA and comparison.
+---
 
-## 6) Security & IAM
-- Bind least privilege (examples in `iam/*.json`):
-  - `etl-sa`: Storage Object Viewer (bucket), BigQuery Data Editor + Job User (dataset)
-  - Analysts group: BigQuery Data Viewer
-- **Row‑level security**: see `iam/row_access_policy.sql`
-- **Column‑level security** (policy tags) for `income*`: see `iam/README_column_level_security.md` & `iam/attach_policy_tags.sql`
+## Thought Process
 
-**Rationale**: ETL only needs to read from GCS and write/query dataset. Analysts shouldn’t see sensitive income columns by default and may have zipcode‑scoped access.
+- Start from **raw CSV in GCS** to simulate real-world landing zone.  
+- Build step-by-step: **raw → staging → curated** to keep transformations traceable.  
+- Add **data quality checks** to validate assumptions.  
+- Apply **two imputation methods** to practice both a simple and a model-based approach.  
+- Run **insights SQL + BQML model** for sanity checking.  
+- Document **IAM and reproducibility** because they are always expected in real data engineering projects.  
 
-## 7) Concerns & notes
-- Demographic fields come from a 3rd‑party aggregator: watch for **missing‑not‑at‑random** patterns; imputation can encode bias.
-- `mozip` stands in for weather; ensure its granularity is stable across time.
-- Partitioning by `period_date` supports month‑level pruning; clustering by `zipcode`,`mozip`,`hh_id` helps point‑lookups.
-- Keep an **audit trail**: the scripts mark `was_imputed` and `impute_strategy`.
-- Sanity bounds for `lusage` and `size_sqft` are included in DQ SQL; tune thresholds with domain input.
+---
 
-## 8) Requirements
-See `requirements.txt`
+## Visualizations (see notebooks)
 
-## 9) File map
-```
-bq/
-  ddl.sql
-  schema.raw.json
-  schema.curated.json
-  insights.sql
-dq/
-  dq_checks.sql
-iam/
-  bucket_policy.bindings.json
-  dataset_policy.bindings.json
-  row_access_policy.sql
-  attach_policy_tags.sql
-  README_column_level_security.md
-notebooks/
-  01_eda.ipynb
-  02_imputation_compare.ipynb
-  03_insights_and_sanity.ipynb
-scripts/
-  ingest_to_bq.py
-  impute_baseline.py
-  impute_model.py
-terraform/
-  main.tf
-```
+1. Histogram of `lusage` (distribution of electricity usage).  
+2. Line plot of average `lusage` by month (seasonality).  
+3. Scatter plot of `lusage` vs. `size_sqft`.  
+4. Count of imputed vs. original records.  
+5. Predicted vs. actual `lusage` from regression model.  
+
+---
+
+## Concerns & Notes
+- Real pipelines would separate **raw vs. processed** data in different folders (e.g., `raw/`, `processed/`).  
+- Lifecycle rules in GCS could automatically delete/move files after processing.  
+- Model performance (R² very low) shows the dataset may not be strong for prediction, but it is fine for practice.  
+
+---
+
+## How to Run
+
+1. Upload CSV into your bucket:
+   ```bash
+   gsutil cp data_test.csv gs://<your-bucket>/imputation/
+   ```
+2. Run ingestion:
+   ```bash
+   python scripts/ingest_to_bq.py --project <PROJECT_ID> --bucket <BUCKET_NAME> --object imputation/data_test.csv
+   ```
+3. Run DQ checks:
+   ```bash
+   cat dq/dq_checks.sql | sed "s/{{project_id}}/<PROJECT_ID>/g" | bq query --use_legacy_sql=false
+   ```
+4. Run imputation (baseline and model):
+   ```bash
+   python scripts/impute_baseline.py --project <PROJECT_ID>
+   python scripts/impute_model.py --project <PROJECT_ID>
+   ```
+5. Explore notebooks in `notebooks/` for EDA, imputation comparison, and insights.
+
+---
+
+## Conclusion
+
+This project demonstrates a **complete but simple pipeline**:  
+- Ingestion from GCS to BigQuery  
+- Data validation  
+- Imputation with two strategies  
+- Insights and a sanity predictive check  
+- IAM + reproducibility considerations  
+
+
+## Thank you for your time!
