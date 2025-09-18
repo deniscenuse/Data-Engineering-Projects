@@ -1,32 +1,35 @@
-"""
-Ingest CSV from GCS into BigQuery with schema + basic validation.
-Requires: google-cloud-bigquery, google-cloud-storage, pandas (optional)
-Usage:
-  python scripts/ingest_to_bq.py --project <PROJECT_ID> --bucket <BUCKET> --object imputation/data_test.csv
-"""
-import argparse, sys, json, datetime
-from google.cloud import bigquery, storage
-
-def ensure_dataset(bq, project_id):
-    ds_id = f"{project_id}.energy_analytics"
-    ds = bigquery.Dataset(ds_id)
-    ds.location = "EU"
-    bq.create_dataset(ds, exists_ok=True)
-    return ds_id
+import argparse
+import json
+from google.cloud import bigquery
 
 def create_raw_table(bq, project_id):
-    table_id = f"{project_id}.energy_analytics.raw_usage"
-    schema = json.load(open("bq/schema.raw.json"))
-    table = bigquery.Table(table_id, schema=[bigquery.SchemaField(**s) for s in schema])
-    table.clustering_fields = ["zipcode","mozip","hh_id"]
-    table.time_partitioning = bigquery.TimePartitioning(type_=bigquery.TimePartitioningType.MONTH, field=None)  # partition by ingestion-time
+    dataset_id = f"{project_id}.energy_analytics"
+    table_id = f"{dataset_id}.raw_usage"
+
+    # Load schema spec from JSON
+    spec = json.load(open("bq/schema.raw.json"))
+
+    schema = [bigquery.SchemaField(s["name"], s["type"]) for s in spec]
+
+    table = bigquery.Table(table_id, schema=schema)
+    table.time_partitioning = bigquery.TimePartitioning(
+        type_=bigquery.TimePartitioningType.MONTH,
+        field="period_date",
+    )
+    table.clustering_fields = ["zipcode", "mozip", "hh_id"]
+
     bq.create_table(table, exists_ok=True)
-    return table_id
+    print(f"Created table {table_id}")
 
 def load_csv_to_raw(bq, project_id, gcs_uri):
-    table_id = f"{project_id}.energy_analytics.raw_usage"
+    dataset_id = f"{project_id}.energy_analytics"
+    table_id = f"{dataset_id}.raw_usage"
+
+    spec = json.load(open("bq/schema.raw.json"))
+    schema = [bigquery.SchemaField(s["name"], s["type"]) for s in spec]
+
     job_config = bigquery.LoadJobConfig(
-        schema=[bigquery.SchemaField(**s) for s in json.load(open("bq/schema.raw.json"))],
+        schema=schema,
         skip_leading_rows=1,
         source_format=bigquery.SourceFormat.CSV,
         allow_quoted_newlines=True,
@@ -35,28 +38,39 @@ def load_csv_to_raw(bq, project_id, gcs_uri):
         field_delimiter=",",
         encoding="UTF-8",
     )
-    load_job = bq.load_table_from_uri(gcs_uri, table_id, job_config=job_config)
-    result = load_job.result()
+
+    job = bq.load_table_from_uri(gcs_uri, table_id, job_config=job_config)
+    result = job.result()
     print(f"Loaded {result.output_rows} rows into {table_id}")
 
 def build_staging(bq, project_id):
-    ddl = open("bq/ddl.sql").read().replace("{project_id}", project_id)
-    for stmt in ddl.split(";"):
-        s = stmt.strip()
-        if s:
-            bq.query(s).result()
-    print("Staging and curated tables are ready.")
+    dataset_id = f"{project_id}.energy_analytics"
+    raw = f"{dataset_id}.raw_usage"
+    stg = f"{dataset_id}.stg_usage"
+
+    stmt = f"""
+    CREATE OR REPLACE TABLE `{stg}` AS
+    SELECT
+      *,
+      DATE(CONCAT(CAST(year AS STRING), '-', CAST(month AS STRING), '-01')) AS period_date
+    FROM `{raw}`;
+    """
+
+    bq.query(stmt).result()
+    print(f"Created staging table {stg}")
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--project", required=True)
-    ap.add_argument("--bucket", required=True, help="GCS bucket name (no gs:// prefix)")
-    ap.add_argument("--object", required=True, help="Object path inside bucket, e.g. imputation/data_test.csv")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--project", required=True)
+    parser.add_argument("--bucket", required=True)
+    parser.add_argument("--object", required=True)
+    args = parser.parse_args()
 
     bq = bigquery.Client(project=args.project)
-    ensure_dataset(bq, args.project)
+
     create_raw_table(bq, args.project)
+
     gcs_uri = f"gs://{args.bucket}/{args.object}"
     load_csv_to_raw(bq, args.project, gcs_uri)
+
     build_staging(bq, args.project)

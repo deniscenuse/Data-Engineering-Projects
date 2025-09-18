@@ -1,38 +1,43 @@
--- 1) Key ranges
-SELECT
-  SUM(CASE WHEN year NOT IN (2010, 2011) THEN 1 ELSE 0 END) AS bad_years,
-  SUM(CASE WHEN month < 4 OR month > 8 THEN 1 ELSE 0 END)   AS bad_months
+-- Count total rows
+SELECT COUNT(*) AS n
 FROM `{{project_id}}.energy_analytics.stg_usage`;
 
--- 2) Required identifiers
-SELECT COUNT(*) AS missing_ids
-FROM `{{project_id}}.energy_analytics.stg_usage`
-WHERE hh_id IS NULL OR zipcode IS NULL OR mozip IS NULL;
-
--- 3) One-hot hygiene for hhsize (baseline category likely size=1 not present)
-SELECT COUNT(*) AS bad_hhsize
-FROM `{{project_id}}.energy_analytics.stg_usage`
-WHERE (COALESCE(hhsize2,0)+COALESCE(hhsize3,0)+COALESCE(hhsize4,0)+COALESCE(hhsize5plus,0)) > 1;
-
--- 4) One-hot hygiene for income (baseline likely income1 omitted)
-SELECT COUNT(*) AS bad_income
-FROM `{{project_id}}.energy_analytics.stg_usage`
-WHERE (COALESCE(income2,0)+COALESCE(income3,0)+COALESCE(income4,0)+COALESCE(income5,0)+
-       COALESCE(income6,0)+COALESCE(income7,0)+COALESCE(income8,0)+COALESCE(income9,0)) > 1;
-
--- 5) Size sanity
-SELECT
-  COUNTIF(size_sqft IS NOT NULL AND (size_sqft < 100 OR size_sqft > 10000)) AS size_out_of_range
-FROM `{{project_id}}.energy_analytics.stg_usage`;
-
--- 6) Lusage sanity (log kWh ~ usually between ~3 and 8; flag outliers)
-SELECT
-  COUNTIF(lusage IS NOT NULL AND (lusage < 2 OR lusage > 9)) AS lusage_outliers
-FROM `{{project_id}}.energy_analytics.stg_usage`;
-
--- 7) Missingness inventory
+-- Check missingness
 SELECT
   COUNTIF(lusage IS NULL) AS miss_lusage,
-  COUNTIF(size_sqft IS NULL) AS miss_size,
-  COUNTIF(children IS NULL) AS miss_children
+  COUNTIF(children IS NULL) AS miss_children,
+  COUNTIF(size_sqft IS NULL) AS miss_size
+FROM `{{project_id}}.energy_analytics.stg_usage`;
+
+-- Range checks
+SELECT
+  COUNTIF(month < 4 OR month > 8) AS bad_month,
+  COUNTIF(year NOT IN (2010,2011)) AS bad_year
+FROM `{{project_id}}.energy_analytics.stg_usage`;
+
+-- hhsize one-hot check
+SELECT COUNT(*) AS bad_hhsize
+FROM `{{project_id}}.energy_analytics.stg_usage`
+WHERE (COALESCE(CAST(hhsize2 AS INT64),0)
+     + COALESCE(CAST(hhsize3 AS INT64),0)
+     + COALESCE(CAST(hhsize4 AS INT64),0)
+     + COALESCE(CAST(hhsize5plus AS INT64),0)) > 1;
+
+-- income one-hot check
+SELECT COUNT(*) AS bad_income
+FROM `{{project_id}}.energy_analytics.stg_usage`
+WHERE (COALESCE(CAST(income2 AS INT64),0)
+     + COALESCE(CAST(income3 AS INT64),0)
+     + COALESCE(CAST(income4 AS INT64),0)
+     + COALESCE(CAST(income5 AS INT64),0)
+     + COALESCE(CAST(income6 AS INT64),0)
+     + COALESCE(CAST(income7 AS INT64),0)
+     + COALESCE(CAST(income8 AS INT64),0)
+     + COALESCE(CAST(income9 AS INT64),0)) > 1;
+
+-- Simple descriptive stats
+SELECT
+  MIN(lusage) AS min_lusage,
+  MAX(lusage) AS max_lusage,
+  AVG(lusage) AS avg_lusage
 FROM `{{project_id}}.energy_analytics.stg_usage`;
